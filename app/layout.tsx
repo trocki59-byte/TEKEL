@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Troçki Studio • Bayi Yönetim",
+  title: "TEKEL • Bayi Yönetim",
   description: "Satış, stok, kasa ve veresiye yönetimi",
   icons: {
     icon: "/favicon.svg",

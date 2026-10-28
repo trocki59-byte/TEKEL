@@ -1,6 +1,6 @@
 // Uses the user's existing Git Credential Manager session; never saves credentials.
 import { execFileSync } from 'node:child_process';
-const owner = 'trocki59-byte', repo = 'trocki-studio-bayi';
+const owner = 'trocki59-byte', repo = 'TEKEL';
 function git(args, options = {}) { return execFileSync('git', args, { encoding: 'utf8', env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never' }, ...options }); }
 try {
     const raw = git(['credential', 'fill'], { input: 'protocol=https\nhost=github.com\n\n', stdio: ['pipe', 'pipe', 'pipe'] });
@@ -12,7 +12,7 @@ try {
         throw new Error('GitHub hesabı bağlı hesap ile eşleşmiyor.');
     let response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers });
     if (response.status === 404)
-        response = await fetch('https://api.github.com/user/repos', { method: 'POST', headers, body: JSON.stringify({ name: repo, description: 'Troçki Studio — Türkçe bayi satış, stok, kasa ve veresiye yönetimi', private: true, auto_init: false }) });
+        response = await fetch('https://api.github.com/user/repos', { method: 'POST', headers, body: JSON.stringify({ name: repo, description: 'TEKEL — Türkçe bayi satış, stok, kasa ve veresiye yönetimi', private: true, auto_init: false }) });
     const result = await response.json();
     if (!response.ok)
         throw new Error(`GitHub depo işlemi başarısız (${response.status}): ${result.message}`);

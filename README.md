@@ -1,4 +1,4 @@
-# Troçki Studio • Bayi Yönetim
+# TEKEL • Bayi Yönetim
 
 Türkçe, koyu temalı ve telefon/bilgisayar uyumlu özel işletme paneli.
 
@@ -9,7 +9,7 @@ Türkçe, koyu temalı ve telefon/bilgisayar uyumlu özel işletme paneli.
 - Müşteri borçları, nakit/kart tahsilat ve hesap hareketleri.
 - JSON dışa aktarma/geri yükleme ve ürün CSV içe/dışa aktarma.
 - Ortak Cloudflare D1 kaydı, atomik sürüm kontrolü ve tekrar işlem koruması.
-- Açılış ekranında **Troçki Studio**.
+- Kısa açılış tanıtımında **Troçki Studio**, ardından **TEKEL** uygulaması.
 
 ## İlk kullanım
 1. Özel yayın adresine, yayının sahibi olan ChatGPT hesabıyla giriş yapın.

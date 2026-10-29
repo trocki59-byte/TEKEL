@@ -44,6 +44,8 @@ Para tamsayı kuruş olarak saklanır; satış maliyeti işlem anında sabitleni
 Nakit hareketi = nakit satış + nakit tahsilat − nakit gider − nakit tedarikçi ödemesi. Açılış kasa bakiyesi dahil değildir. Alış faturası nakit/kart ise otomatik tedarikçi ödemesi oluşturur; tekrar gider eklemeyin. Faturasız stok girişi ödeme oluşturmaz. Tedarikçi ödemeleri kârdan ayrıca düşmez; satışta maliyet zaten hesaba katılır. Satış iptali/iade ilk sürümde yoktur.
 
 ## Faturalar ve iskonto
+Alış ve satış faturalarına **Stok → Alış Faturaları / Satış Faturaları** sekmelerinden ulaşılır. Ana menüde ayrı fatura bölümleri yoktur; **Stok Takibi** sekmesi ürün stoklarını ve girişlerini gösterir.
+
 Alış faturası stok ekler ve net satır tutarı / paket adedi (kuruşa yuvarlanarak) ürünün son alış maliyetini günceller. Satış faturası bir satış ve bir stok çıkışı oluşturur; önceden yapılan POS satışını yeniden fatura olarak girmeyin. Kesinleşen faturalar düzenlenmez/silinmez. Fatura numarası alışta tedarikçi bazında, satışta genel olarak benzersizdir.
 
 Üç fatura geneli yüzde oranı sırayla kalan tutara uygulanır. Örnek: 1.000 TL → %10 → %5 → %2 = 837,90 TL. Her adım kuruşa yuvarlanır. Net tutar satırlara oranla ve kalan kuruşlar korunarak dağıtılır. %100 iskontoda maliyet sıfır olabilir; doğrulanmış ürün satılabilir. Kâr satışın net toplamı eksi satış anı maliyetidir.

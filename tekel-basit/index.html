@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tekel Bayi Yönetimi</title>
+<style>
+  :root{--bg:#f4f5f7;--card:#fff;--ink:#1d2330;--muted:#6b7280;--brand:#1f6feb;--ok:#15803d;--warn:#b45309;--bad:#b91c1c;--line:#e5e7eb}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:16px}
+  header{background:var(--ink);color:#fff;padding:12px 16px;position:sticky;top:0;z-index:5}
+  header .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  header h1{font-size:18px;margin:0}
+  header .ciro{font-size:14px;opacity:.9}
+  nav{display:flex;overflow-x:auto;gap:6px;margin-top:10px}
+  nav button{flex:0 0 auto;background:#374151;color:#fff;border:0;border-radius:999px;padding:8px 14px;font-size:14px}
+  nav button.on{background:var(--brand)}
+  main{padding:12px;max-width:900px;margin:0 auto}
+  section.tab{display:none}
+  section.tab.active{display:block}
+  .card{background:var(--card);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .card h2{font-size:16px;margin:0 0 10px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .grid .full{grid-column:1/-1}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:2px}
+  input,select{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;background:#fff}
+  .inline{display:flex;gap:6px}
+  .inline input{flex:1}
+  button{font-size:15px;border:0;border-radius:8px;padding:10px 14px;background:var(--brand);color:#fff;cursor:pointer}
+  button.sec{background:#e5e7eb;color:var(--ink)}
+  button.ok{background:var(--ok)}
+  button.bad{background:var(--bad)}
+  button.sm{padding:6px 10px;font-size:13px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+  th{color:var(--muted);font-weight:600;font-size:12px}
+  td.r,th.r{text-align:right}
+  small{display:block;color:var(--muted)}
+  .low{color:var(--bad);font-weight:600}
+  .debt{color:var(--bad);font-weight:600}
+  .total{font-size:22px;font-weight:700;text-align:right;margin:10px 0}
+  .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .stat{background:#f9fafb;border-radius:10px;padding:10px}
+  .stat b{display:block;font-size:18px}
+  .hidden{display:none !important}
+  .actions{display:flex;gap:6px;flex-wrap:wrap}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:20}
+  .modal .box{background:#000;border-radius:12px;padding:10px;width:min(92vw,480px);text-align:center;color:#fff}
+  .modal video{width:100%;border-radius:8px;background:#111}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120px);background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;transition:transform .25s;z-index:30;max-width:90vw;text-align:center}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+  @media(max-width:520px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="row">
+    <h1>Tekel Bayi</h1>
+    <div class="ciro">Bugün: <b id="bugunCiro">0,00 ₺</b></div>
+  </div>
+  <nav>
+    <button data-tab="kasa" class="on">Kasa</button>
+    <button data-tab="urunler">Ürünler</button>
+    <button data-tab="stok">Stok / Fatura</button>
+    <button data-tab="musteriler">Veresiye</button>
+    <button data-tab="raporlar">Raporlar</button>
+    <button data-tab="yedek">Yedek</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- KASA -->
+  <section id="tab-kasa" class="tab active">
+    <div class="card">
+      <h2>Barkod / ürün ara</h2>
+      <div class="inline">
+        <input id="kasaGiris" list="urunListesi" placeholder="Barkod yazın veya ürün adı" autocomplete="off">
+        <button class="sec" onclick="startScan(addToCart)">📷</button>
+        <button onclick="addFromInput()">Ekle</button>
+      </div>
+      <datalist id="urunListesi"></datalist>
+    </div>
+
+    <div class="card">
+      <h2>Sepet</h2>
+      <table>
+        <thead><tr><th>Ürün</th><th>Adet</th><th class="r">Tutar</th><th></th></tr></thead>
+        <tbody id="sepetBody"></tbody>
+      </table>
+      <p id="sepetBos" class="hidden" style="color:var(--muted)">Sepet boş.</p>
+      <div class="total">Toplam: <span id="sepetToplam">0,00 ₺</span></div>
+      <div class="grid">
+        <div>
+          <label>Ödeme tipi</label>
+          <select id="odemeTipi" onchange="veresiyeKutusu()">
+            <option value="nakit">Nakit</option>
+            <option value="kart">Kredi kartı</option>
+            <option value="veresiye">Veresiye</option>
+          </select>
+        </div>
+        <div id="veresiyeKutusu" class="hidden">
+          <label>Müşteri</label>
+          <select id="musteriSec"></select>
+        </div>
+      </div>
+      <div class="actions" style="margin-top:12px">
+        <button class="ok" onclick="tamamlaSatis()">Satışı tamamla</button>
+        <button class="sec" onclick="sepetiBosalt()">Sepeti boşalt</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ÜRÜNLER -->
+  <section id="tab-urunler" class="tab">
+    <div class="card">
+      <h2>Ürün kaydı</h2>
+      <input type="hidden" id="pId">
+      <div class="grid">
+        <div class="full">
+          <label>Barkod</label>
+          <div class="inline">
+            <input id="pBarkod" inputmode="numeric" placeholder="Paket barkodu">
+            <button class="sec" onclick="startScan(code=>$('pBarkod').value=code)">📷</button>
+          </div>
+        </div>
+        <div class="full"><label>Ürün adı</label><input id="pAd" placeholder="Örn. Marlboro Red 20'li"></div>
+        <div><label>Marka</label><input id="pMarka"></div>
+        <div>
+          <label>Tür</label>
+          <select id="pTur">
+            <option>Sigara</option><option>Tütün</option><option>Puro</option><option>Diğer</option>
+          </select>
+        </div>
+        <div><label>Alış fiyatı (₺)</label><input id="pAlis" inputmode="decimal"></div>
+        <div><label>Satış fiyatı (₺)</label><input id="pSatis" inputmode="decimal"></div>
+        <div><label>Stok (adet)</label><input id="pStok" inputmode="numeric"></div>
+        <div><label>Minimum stok uyarısı</label><input id="pMin" inputmode="numeric"></div>
+      </div>
+      <div class="actions" style="margin-top:12px">
+        <button class="ok" onclick="kaydetUrun()">Kaydet</button>
+        <button class="sec" onclick="formuTemizle()">Temizle</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Ürün listesi</h2>
+      <input id="urunAra" placeholder="Ara: ad, marka veya barkod" oninput="renderUrunler()" style="margin-bottom:8px">
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Ürün</th><th class="r">Satış</th><th class="r">Stok</th><th></th></tr></thead>
+          <tbody id="urunBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- STOK / FATURA -->
+  <section id="tab-stok" class="tab">
+    <div class="card">
+      <h2>Azalan stok</h2>
+      <div id="azalanListe"></div>
+    </div>
+
+    <div class="card">
+      <h2>Tedarikçiler</h2>
+      <div class="inline" style="margin-bottom:8px">
+        <input id="tedAd" placeholder="Tedarikçi adı">
+        <button onclick="ekleTedarikci()">Ekle</button>
+      </div>
+      <div id="tedListe"></div>
+    </div>
+
+    <div class="card">
+      <h2>Mal kabul (alış faturası)</h2>
+      <div class="grid">
+        <div><label>Tarih</label><input type="date" id="invTarih"></div>
+        <div><label>Fatura no</label><input id="invNo"></div>
+        <div class="full">
+          <label>Tedarikçi</label>
+          <select id="invTedarikci"></select>
+        </div>
+      </div>
+      <div class="grid" style="margin-top:8px">
+        <div class="full">
+          <label>Barkod</label>
+          <div class="inline">
+            <input id="lineBarkod" inputmode="numeric" placeholder="Barkod">
+            <button class="sec" onclick="startScan(code=>{$('lineBarkod').value=code;addInvLine();})">📷</button>
+          </div>
+        </div>
+        <div><label>Adet</label><input id="lineAdet" inputmode="numeric" value="1"></div>
+        <div><label>Alış fiyatı (boş = kayıtlı)</label><input id="lineAlis" inputmode="decimal"></div>
+      </div>
+      <div class="actions" style="margin:8px 0">
+        <button onclick="addInvLine()">Satıra ekle</button>
+      </div>
+      <table>
+        <thead><tr><th>Ürün</th><th class="r">Adet</th><th class="r">Alış</th><th></th></tr></thead>
+        <tbody id="invBody"></tbody>
+      </table>
+      <div class="total">Fatura toplamı: <span id="invToplam">0,00 ₺</span></div>
+      <div class="actions">
+        <button class="ok" onclick="kaydetFatura()">Faturayı kaydet (stoğa ekle)</button>
+        <button class="sec" onclick="invLines=[];renderInv()">Temizle</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Son faturalar</h2>
+      <div style="overflow-x:auto"><table><thead><tr><th>Tarih</th><th>Tedarikçi</th><th class="r">Toplam</th></tr></thead><tbody id="faturaGecmis"></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- VERESİYE -->
+  <section id="tab-musteriler" class="tab">
+    <div class="card">
+      <h2>Yeni müşteri</h2>
+      <div class="grid">
+        <div><label>Ad soyad</label><input id="mAd"></div>
+        <div><label>Telefon</label><input id="mTel" inputmode="tel"></div>
+      </div>
+      <div class="actions" style="margin-top:10px"><button onclick="ekleMusteri()">Ekle</button></div>
+    </div>
+
+    <div class="card">
+      <h2>Müşteriler</h2>
+      <div style="overflow-x:auto"><table>
+        <thead><tr><th>Ad</th><th class="r">Borç</th><th></th></tr></thead>
+        <tbody id="musteriBody"></tbody>
+      </table></div>
+    </div>
+
+    <div class="card hidden" id="custDetay">
+      <h2 id="custBaslik"></h2>
+      <div class="total" style="text-align:left">Borç: <span id="custBorc"></span></div>
+      <div class="inline" style="margin-bottom:10px">
+        <input id="tahsilatTutar" inputmode="decimal" placeholder="Tahsilat tutarı">
+        <button class="ok" onclick="tahsilat()">Tahsilat al</button>
+      </div>
+      <div style="overflow-x:auto"><table><thead><tr><th>Tarih</th><th>Hareket</th><th class="r">Tutar</th></tr></thead><tbody id="custHareket"></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- RAPORLAR -->
+  <section id="tab-raporlar" class="tab">
+    <div class="card">
+      <h2>Günlük rapor</h2>
+      <div class="inline" style="margin-bottom:10px">
+        <input type="date" id="raporTarih" onchange="renderRapor()">
+        <button class="sec" onclick="raporCsv()">CSV indir</button>
+      </div>
+      <div class="stats" id="raporOzet"></div>
+    </div>
+    <div class="card">
+      <h2>Gün içinde satılan ürünler</h2>
+      <div style="overflow-x:auto"><table><thead><tr><th>Ürün</th><th class="r">Adet</th><th class="r">Tutar</th></tr></thead><tbody id="raporUrunler"></tbody></table></div>
+    </div>
+    <div class="card">
+      <h2>En çok satanlar (tüm zamanlar)</h2>
+      <div style="overflow-x:auto"><table><thead><tr><th>Ürün</th><th class="r">Adet</th><th class="r">Tutar</th></tr></thead><tbody id="enCokBody"></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- YEDEK -->
+  <section id="tab-yedek" class="tab">
+    <div class="card">
+      <h2>Yedekleme</h2>
+      <p style="color:var(--muted);font-size:14px">Veriler bu telefonun tarayıcısında saklanır. Düzenli olarak yedek alın.</p>
+      <div class="actions">
+        <button onclick="yedekAl()">Yedek indir (JSON)</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Yedekten geri yükle</h2>
+      <p style="color:var(--bad);font-size:14px">Dikkat: Mevcut veriler silinip yedekteki veriler yüklenir.</p>
+      <input type="file" id="yedekDosya" accept="application/json" onchange="yedekYukle(this.files[0])">
+    </div>
+  </section>
+
+</main>
+
+<div id="scanModal" class="modal hidden">
+  <div class="box">
+    <video id="scanVideo" playsinline muted></video>
+    <p id="scanHata" class="hidden" style="color:#fca5a5;font-size:14px"></p>
+    <p>Barkodu kameraya tutun</p>
+    <div class="actions" style="justify-content:center">
+      <button onclick="if(scanCb){startScan(scanCb)}">Tekrar dene</button>
+      <button class="sec" onclick="stopScan()">Kapat</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script>
+/* ============ VERİ ============ */
+const KEY = 'tekel_bayi_v1';
+const EMPTY = {products:[], suppliers:[], invoices:[], customers:[], sales:[], payments:[]};
+let db = loadDb();
+let cart = [];
+let invLines = [];
+let seciliMusteri = null;
+
+function loadDb(){
+  try { return {...EMPTY, ...JSON.parse(localStorage.getItem(KEY) || '{}')}; }
+  catch(e){ return {...EMPTY}; }
+}
+function saveDb(){ localStorage.setItem(KEY, JSON.stringify(db)); }
+
+/* ============ YARDIMCILAR ============ */
+const $ = id => document.getElementById(id);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const tl = n => Number(n || 0).toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ₺';
+const num = v => Number(String(v ?? '').replace(',', '.')) || 0;
+const ymd = (d = new Date()) => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+const tarihSaat = iso => new Date(iso).toLocaleString('tr-TR', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'});
+const urunBul = barkod => db.products.find(p => p.barkod === String(barkod).trim());
+const pBul = id => db.products.find(p => p.id === id);
+
+function toast(msg){
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2200);
+}
+function download(ad, icerik, tip){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([icerik], {type: tip}));
+  a.download = ad; a.click();
+}
+function musteriBakiye(id){
+  const borc = db.sales.filter(s => s.musteriId === id && s.odeme === 'veresiye').reduce((a,s) => a + s.toplam, 0);
+  const odeme = db.payments.filter(p => p.musteriId === id).reduce((a,p) => a + p.tutar, 0);
+  return borc - odeme;
+}
+
+/* ============ SEKMELER ============ */
+const renderers = {
+  kasa: () => { renderKasa(); renderDatalist(); },
+  urunler: renderUrunler,
+  stok: renderStok,
+  musteriler: renderMusteriler,
+  raporlar: () => { if(!$('raporTarih').value) $('raporTarih').value = ymd(); renderRapor(); renderEnCok(); },
+  yedek: () => {}
+};
+function showTab(t){
+  document.querySelectorAll('section.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + t));
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  renderers[t]();
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+
+/* ============ BARKOD TARAYICI ============ */
+let reader = null, scanCb = null;
+function scanHata(mesaj){
+  $('scanHata').textContent = mesaj;
+  $('scanHata').classList.remove('hidden');
+}
+async function startScan(cb){
+  scanCb = cb;
+  $('scanHata').classList.add('hidden');
+  $('scanModal').classList.remove('hidden');
+
+  if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    scanHata('Kamera yalnızca HTTPS üzerinden açılan sayfada çalışır. Sayfayı bir HTTPS adresinden (ör. GitHub Pages) açın veya barkodu elle yazın.');
+    return;
+  }
+  if (typeof ZXing === 'undefined'){
+    scanHata('Barkod kütüphanesi yüklenemedi. İnternet bağlantınızı kontrol edin veya barkodu elle yazın.');
+    return;
+  }
+  try {
+    reader = new ZXing.BrowserMultiFormatReader();
+    await reader.decodeFromConstraints(
+      {video: {facingMode: {ideal: 'environment'}}},
+      'scanVideo',
+      res => {
+        if (res && scanCb){ const f = scanCb, kod = res.getText(); stopScan(); f(kod); }
+      }
+    );
+  } catch(e){
+    const ad = e && e.name ? e.name : '';
+    if (ad === 'NotAllowedError' || ad === 'PermissionDeniedError')
+      scanHata('Kamera izni verilmedi. Tarayıcı adres çubuğundaki kilit/kamera simgesinden izin verin, sonra tekrar deneyin.');
+    else if (ad === 'NotFoundError' || ad === 'OverconstrainedError')
+      scanHata('Bu cihazda kamera bulunamadı. Barkodu elle yazın.');
+    else if (ad === 'NotReadableError')
+      scanHata('Kamera başka bir uygulama tarafından kullanılıyor olabilir. Diğer uygulamaları kapatıp tekrar deneyin.');
+    else
+      scanHata('Kamera açılamadı: ' + (e && e.message ? e.message : 'bilinmeyen hata'));
+  }
+}
+function stopScan(){
+  if (reader){ try { reader.reset(); } catch(e){} reader = null; }
+  scanCb = null;
+  $('scanModal').classList.add('hidden');
+}
+
+/* ============ KASA ============ */
+function renderDatalist(){
+  $('urunListesi').innerHTML = db.products.map(p =>
+    `<option value="${esc(p.barkod)}">${esc(p.ad)}</option>`).join('');
+}
+function renderKasa(){
+  const bugun = ymd();
+  const ciro = db.sales.filter(s => ymd(new Date(s.tarih)) === bugun).reduce((a,s) => a + s.toplam, 0);
+  $('bugunCiro').textContent = tl(ciro);
+
+  const sel = $('musteriSec');
+  sel.innerHTML = db.customers.map(c => `<option value="${c.id}">${esc(c.ad)}</option>`).join('')
+    || '<option value="">Önce müşteri ekleyin</option>';
+  renderSepet();
+}
+function addFromInput(){
+  const v = $('kasaGiris').value.trim();
+  if (!v) return;
+  const p = urunBul(v) || db.products.find(x => x.ad.toLowerCase() === v.toLowerCase());
+  if (p) sepeteEkle(p.id);
+  else addToCart(v);
+  $('kasaGiris').value = '';
+}
+function addToCart(barkod){
+  const p = urunBul(barkod);
+  if (!p){
+    if (confirm(`"${barkod}" kayıtlı değil. Ürünler kısmında eklemek ister misiniz?`)){
+      showTab('urunler'); formuDoldur({barkod});
+    }
+    return;
+  }
+  sepeteEkle(p.id);
+}
+function sepeteEkle(pid){
+  const p = pBul(pid);
+  const satir = cart.find(c => c.pid === pid);
+  const adet = satir ? satir.adet : 0;
+  if (adet + 1 > p.stok){ toast(`Stok yetersiz (mevcut: ${p.stok})`); return; }
+  if (satir) satir.adet++; else cart.push({pid, adet:1});
+  renderSepet(); toast(p.ad + ' eklendi');
+}
+function sepetDegistir(i, d){
+  const c = cart[i], p = pBul(c.pid);
+  if (d > 0 && c.adet + 1 > p.stok){ toast(`Stok yetersiz (mevcut: ${p.stok})`); return; }
+  c.adet += d;
+  if (c.adet <= 0) cart.splice(i,1);
+  renderSepet();
+}
+function sepetSil(i){ cart.splice(i,1); renderSepet(); }
+function sepetiBosalt(){ cart = []; renderSepet(); }
+function renderSepet(){
+  cart = cart.filter(c => pBul(c.pid));
+  let toplam = 0;
+  $('sepetBody').innerHTML = cart.map((c,i) => {
+    const p = pBul(c.pid), tutar = p.satis * c.adet;
+    toplam += tutar;
+    return `<tr>
+      <td>${esc(p.ad)}<small>${esc(p.marka)} · ${tl(p.satis)}</small></td>
+      <td><button class="sm sec" onclick="sepetDegistir(${i},-1)">−</button>
+          <b style="margin:0 6px">${c.adet}</b>
+          <button class="sm sec" onclick="sepetDegistir(${i},1)">+</button></td>
+      <td class="r">${tl(tutar)}</td>
+      <td><button class="sm bad" onclick="sepetSil(${i})">✕</button></td>
+    </tr>`;
+  }).join('');
+  $('sepetBos').classList.toggle('hidden', cart.length > 0);
+  $('sepetToplam').textContent = tl(toplam);
+}
+function veresiyeKutusu(){
+  $('veresiyeKutusu').classList.toggle('hidden', $('odemeTipi').value !== 'veresiye');
+}
+function tamamlaSatis(){
+  if (!cart.length) return toast('Sepet boş');
+  const tip = $('odemeTipi').value;
+  let musteriId = null;
+  if (tip === 'veresiye'){
+    musteriId = $('musteriSec').value;
+    if (!musteriId) return toast('Veresiye için müşteri seçin');
+  }
+  const kalemler = cart.map(c => {
+    const p = pBul(c.pid);
+    return {pid:p.id, ad:p.ad, adet:c.adet, fiyat:p.satis};
+  });
+  const toplam = kalemler.reduce((a,k) => a + k.adet * k.fiyat, 0);
+  kalemler.forEach(k => { pBul(k.pid).stok -= k.adet; });
+  db.sales.push({id:uid(), tarih:new Date().toISOString(), kalemler, toplam, odeme:tip, musteriId});
+  saveDb();
+  cart = [];
+  renderKasa();
+  toast('Satış kaydedildi: ' + tl(toplam));
+}
+
+/* ============ ÜRÜNLER ============ */
+function formuDoldur(p = {}){
+  $('pId').value = p.id || '';
+  $('pBarkod').value = p.barkod || '';
+  $('pAd').value = p.ad || '';
+  $('pMarka').value = p.marka || '';
+  $('pTur').value = p.tur || 'Sigara';
+  $('pAlis').value = p.alis ?? '';
+  $('pSatis').value = p.satis ?? '';
+  $('pStok').value = p.stok ?? 0;
+  $('pMin').value = p.minStok ?? 0;
+}
+function formuTemizle(){ formuDoldur({}); }
+function kaydetUrun(){
+  const id = $('pId').value;
+  const barkod = $('pBarkod').value.trim();
+  const ad = $('pAd').value.trim();
+  if (!barkod || !ad) return toast('Barkod ve ürün adı zorunlu');
+  if (db.products.some(p => p.barkod === barkod && p.id !== id)) return toast('Bu barkod başka üründe kayıtlı');
+  const veri = {
+    barkod, ad,
+    marka: $('pMarka').value.trim(),
+    tur: $('pTur').value,
+    alis: num($('pAlis').value),
+    satis: num($('pSatis').value),
+    stok: Math.floor(num($('pStok').value)),
+    minStok: Math.floor(num($('pMin').value))
+  };
+  if (id){
+    Object.assign(pBul(id), veri);
+  } else {
+    db.products.push({id:uid(), ...veri});
+  }
+  saveDb(); formuTemizle(); renderUrunler(); toast('Ürün kaydedildi');
+}
+function urunDuzenle(id){ formuDoldur(pBul(id)); window.scrollTo({top:0, behavior:'smooth'}); }
+function urunSil(id){
+  const p = pBul(id);
+  if (!confirm(`"${p.ad}" silinsin mi? (Geçmiş satışlar korunur)`)) return;
+  db.products = db.products.filter(x => x.id !== id);
+  saveDb(); renderUrunler();
+}
+function renderUrunler(){
+  const q = $('urunAra').value.trim().toLowerCase();
+  const liste = db.products
+    .filter(p => !q || [p.ad, p.marka, p.barkod].some(v => String(v).toLowerCase().includes(q)))
+    .sort((a,b) => a.ad.localeCompare(b.ad, 'tr'));
+  $('urunBody').innerHTML = liste.map(p => `
+    <tr>
+      <td>${esc(p.ad)}<small>${esc(p.marka)} · ${esc(p.barkod)}</small></td>
+      <td class="r">${tl(p.satis)}</td>
+      <td class="r ${p.stok <= p.minStok ? 'low' : ''}">${p.stok}</td>
+      <td><div class="actions">
+        <button class="sm sec" onclick="urunDuzenle('${p.id}')">Düzenle</button>
+        <button class="sm bad" onclick="urunSil('${p.id}')">Sil</button>
+      </div></td>
+    </tr>`).join('') || `<tr><td colspan="4" style="color:var(--muted)">Kayıtlı ürün yok.</td></tr>`;
+}
+
+/* ============ STOK / FATURA ============ */
+function ekleTedarikci(){
+  const ad = $('tedAd').value.trim();
+  if (!ad) return toast('Tedarikçi adı girin');
+  db.suppliers.push({id:uid(), ad}); saveDb(); $('tedAd').value = ''; renderStok(); toast('Tedarikçi eklendi');
+}
+function tedarikciSil(id){
+  if (!confirm('Tedarikçi silinsin mi?')) return;
+  db.suppliers = db.suppliers.filter(s => s.id !== id); saveDb(); renderStok();
+}
+function addInvLine(){
+  const p = urunBul($('lineBarkod').value.trim());
+  if (!p) return toast('Barkod kayıtlı değil');
+  const adet = Math.floor(num($('lineAdet').value));
+  if (adet < 1) return toast('Adet en az 1 olmalı');
+  const alis = num($('lineAlis').value) || p.alis;
+  invLines.push({pid:p.id, adet, alis});
+  $('lineBarkod').value = ''; $('lineAdet').value = '1'; $('lineAlis').value = '';
+  renderInv();
+}
+function invSatirSil(i){ invLines.splice(i,1); renderInv(); }
+function renderInv(){
+  let toplam = 0;
+  $('invBody').innerHTML = invLines.map((l,i) => {
+    const p = pBul(l.pid); toplam += l.adet * l.alis;
+    return `<tr><td>${esc(p.ad)}</td><td class="r">${l.adet}</td><td class="r">${tl(l.alis)}</td>
+      <td><button class="sm bad" onclick="invSatirSil(${i})">✕</button></td></tr>`;
+  }).join('');
+  $('invToplam').textContent = tl(toplam);
+}
+function kaydetFatura(){
+  if (!invLines.length) return toast('Fatura satırı yok');
+  const tedId = $('invTedarikci').value;
+  if (!tedId) return toast('Önce tedarikçi ekleyin');
+  const toplam = invLines.reduce((a,l) => a + l.adet * l.alis, 0);
+  invLines.forEach(l => { const p = pBul(l.pid); p.stok += l.adet; p.alis = l.alis; });
+  db.invoices.push({
+    id:uid(), tarih: $('invTarih').value || ymd(), tedarikciId: tedId,
+    faturaNo: $('invNo').value.trim(),
+    kalemler: invLines.map(l => ({pid:l.pid, ad:pBul(l.pid).ad, adet:l.adet, alis:l.alis})),
+    toplam
+  });
+  saveDb(); invLines = []; $('invNo').value = '';
+  renderStok(); renderInv(); toast('Fatura kaydedildi, stok güncellendi');
+}
+function renderStok(){
+  $('invTarih').value ||= ymd();
+  $('azalanListe').innerHTML = db.products
+    .filter(p => p.stok <= p.minStok)
+    .map(p => `<div class="low" style="padding:4px 0">${esc(p.ad)} — ${p.stok} adet</div>`).join('')
+    || '<div style="color:var(--muted)">Azalan ürün yok.</div>';
+  $('tedListe').innerHTML = db.suppliers.map(s =>
+    `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)">
+       <span>${esc(s.ad)}</span><button class="sm bad" onclick="tedarikciSil('${s.id}')">Sil</button></div>`).join('')
+    || '<div style="color:var(--muted)">Tedarikçi yok.</div>';
+  const mevcut = $('invTedarikci').value;
+  $('invTedarikci').innerHTML = db.suppliers.map(s => `<option value="${s.id}">${esc(s.ad)}</option>`).join('')
+    || '<option value="">Tedarikçi yok</option>';
+  if (mevcut) $('invTedarikci').value = mevcut;
+  $('faturaGecmis').innerHTML = [...db.invoices].reverse().slice(0,20).map(f => {
+    const ted = db.suppliers.find(s => s.id === f.tedarikciId);
+    return `<tr><td>${esc(f.tarih)}<small>${esc(f.faturaNo)}</small></td><td>${esc(ted?.ad || '-')}</td><td class="r">${tl(f.toplam)}</td></tr>`;
+  }).join('') || `<tr><td colspan="3" style="color:var(--muted)">Fatura yok.</td></tr>`;
+  renderInv();
+}
+
+/* ============ VERESİYE ============ */
+function ekleMusteri(){
+  const ad = $('mAd').value.trim();
+  if (!ad) return toast('Ad soyad girin');
+  db.customers.push({id:uid(), ad, tel:$('mTel').value.trim()});
+  saveDb(); $('mAd').value = ''; $('mTel').value = ''; renderMusteriler(); toast('Müşteri eklendi');
+}
+function musteriSec(id){ seciliMusteri = id; renderMusteriler(); }
+function renderMusteriler(){
+  $('musteriBody').innerHTML = db.customers
+    .sort((a,b) => a.ad.localeCompare(b.ad, 'tr'))
+    .map(c => {
+      const b = musteriBakiye(c.id);
+      return `<tr><td>${esc(c.ad)}<small>${esc(c.tel)}</small></td>
+        <td class="r ${b > 0 ? 'debt' : ''}">${tl(b)}</td>
+        <td><button class="sm sec" onclick="musteriSec('${c.id}')">Aç</button></td></tr>`;
+    }).join('') || `<tr><td colspan="3" style="color:var(--muted)">Müşteri yok.</td></tr>`;
+
+  const c = db.customers.find(x => x.id === seciliMusteri);
+  $('custDetay').classList.toggle('hidden', !c);
+  if (!c) return;
+  $('custBaslik').textContent = c.ad;
+  $('custBorc').textContent = tl(musteriBakiye(c.id));
+  const hareketler = [
+    ...db.sales.filter(s => s.musteriId === c.id && s.odeme === 'veresiye')
+      .map(s => ({t:s.tarih, ad:'Veresiye satış', tutar:s.toplam})),
+    ...db.payments.filter(p => p.musteriId === c.id)
+      .map(p => ({t:p.tarih, ad:'Tahsilat', tutar:-p.tutar}))
+  ].sort((a,b) => new Date(b.t) - new Date(a.t)).slice(0,50);
+  $('custHareket').innerHTML = hareketler.map(h =>
+    `<tr><td>${tarihSaat(h.t)}</td><td>${h.ad}</td><td class="r">${tl(h.tutar)}</td></tr>`).join('')
+    || `<tr><td colspan="3" style="color:var(--muted)">Hareket yok.</td></tr>`;
+}
+function tahsilat(){
+  const c = db.customers.find(x => x.id === seciliMusteri);
+  const tutar = num($('tahsilatTutar').value);
+  if (!c || tutar <= 0) return toast('Tutar girin');
+  db.payments.push({id:uid(), tarih:new Date().toISOString(), musteriId:c.id, tutar});
+  saveDb(); $('tahsilatTutar').value = ''; renderMusteriler(); toast('Tahsilat kaydedildi');
+}
+
+/* ============ RAPORLAR ============ */
+function gunSatislari(gun){ return db.sales.filter(s => ymd(new Date(s.tarih)) === gun); }
+function renderRapor(){
+  const gun = $('raporTarih').value || ymd();
+  const satislar = gunSatislari(gun);
+  const top = t => satislar.filter(s => s.odeme === t).reduce((a,s) => a + s.toplam, 0);
+  const toplam = satislar.reduce((a,s) => a + s.toplam, 0);
+  $('raporOzet').innerHTML = `
+    <div class="stat">Fiş sayısı<b>${satislar.length}</b></div>
+    <div class="stat">Toplam ciro<b>${tl(toplam)}</b></div>
+    <div class="stat">Nakit<b>${tl(top('nakit'))}</b></div>
+    <div class="stat">Kart<b>${tl(top('kart'))}</b></div>
+    <div class="stat">Veresiye<b>${tl(top('veresiye'))}</b></div>`;
+  const urunler = {};
+  satislar.forEach(s => s.kalemler.forEach(k => {
+    const u = urunler[k.pid] ||= {ad:k.ad, adet:0, tutar:0};
+    u.adet += k.adet; u.tutar += k.adet * k.fiyat;
+  }));
+  $('raporUrunler').innerHTML = Object.values(urunler).sort((a,b) => b.tutar - a.tutar)
+    .map(u => `<tr><td>${esc(u.ad)}</td><td class="r">${u.adet}</td><td class="r">${tl(u.tutar)}</td></tr>`).join('')
+    || `<tr><td colspan="3" style="color:var(--muted)">Bu gün satış yok.</td></tr>`;
+}
+function renderEnCok(){
+  const u = {};
+  db.sales.forEach(s => s.kalemler.forEach(k => {
+    const x = u[k.pid] ||= {ad:k.ad, adet:0, tutar:0};
+    x.adet += k.adet; x.tutar += k.adet * k.fiyat;
+  }));
+  $('enCokBody').innerHTML = Object.values(u).sort((a,b) => b.adet - a.adet).slice(0,10)
+    .map(x => `<tr><td>${esc(x.ad)}</td><td class="r">${x.adet}</td><td class="r">${tl(x.tutar)}</td></tr>`).join('')
+    || `<tr><td colspan="3" style="color:var(--muted)">Henüz satış yok.</td></tr>`;
+}
+function raporCsv(){
+  const gun = $('raporTarih').value || ymd();
+  const satirlar = [['Tarih','Saat','Ürün','Adet','Fiyat','Tutar','Ödeme']];
+  gunSatislari(gun).forEach(s => s.kalemler.forEach(k => {
+    const d = new Date(s.tarih);
+    satirlar.push([ymd(d), d.toTimeString().slice(0,5), k.ad, k.adet,
+      k.fiyat.toFixed(2).replace('.',','), (k.adet*k.fiyat).toFixed(2).replace('.',','), s.odeme]);
+  }));
+  const csv = '﻿' + satirlar.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
+  download(`satis-${gun}.csv`, csv, 'text/csv;charset=utf-8');
+}
+
+/* ============ YEDEK ============ */
+function yedekAl(){
+  download(`tekel-yedek-${ymd()}.json`, JSON.stringify(db, null, 2), 'application/json');
+}
+function yedekYukle(dosya){
+  if (!dosya) return;
+  const okuyucu = new FileReader();
+  okuyucu.onload = () => {
+    try {
+      const veri = JSON.parse(okuyucu.result);
+      if (!confirm('Mevcut veriler silinip yedek yüklensin mi?')) return;
+      db = {...EMPTY, ...veri};
+      saveDb();
+      toast('Yedek yüklendi');
+      showTab('kasa');
+    } catch(e){ toast('Geçersiz yedek dosyası'); }
+  };
+  okuyucu.readAsText(dosya);
+}
+
+/* ============ BAŞLAT ============ */
+$('kasaGiris').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); addFromInput(); } });
+$('lineBarkod').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); addInvLine(); } });
+$('invTarih').value = ymd();
+$('raporTarih').value = ymd();
+renderDatalist();
+renderKasa();
+</script>
+</body>
+</html>

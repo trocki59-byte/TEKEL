@@ -68,3 +68,7 @@ Bu ilk sürüm bütün işletme durumunu sürümlü tek JSON kayıtta saklar. D1
 Sites plugin'in `site-workflow.mjs` yardımcısı kaynak eşitleme, paketleme ve özel yayını yönetir. GitHub kaynak aynası `scripts/github-sync.mjs` ile mevcut Git Credential Manager oturumundan gönderilir; anahtar veya parola dosyaya yazılmaz. Kod deposu özel oluşturulur. Yerel `.env`, runtime state, bağımlılıklar ve build çıktıları Git'e dahil edilmez.
 
 Plan/tasarım ve doğrulama notları `docs/` altındadır.
+
+## GitHub Pages — cihazda ayrı kayıtlar
+
+`pnpm build:pages` statik çıktıyı `outputs/pages` içine hazırlar. Yayın yolu `/TEKEL/`. Giriş gerektirmez; IndexedDB kayıtları yalnızca kullanılan tarayıcı profilindedir. Cihazlar eşitlenmez. Özel gezinme veya tarayıcı verilerini temizlemek kayıtları kaybettirebilir; Yedekleme menüsünden düzenli JSON yedeği alın. Eski bulut kayıtları otomatik taşınmaz; oradan indirilen JSON yedeği burada geri yüklenebilir.

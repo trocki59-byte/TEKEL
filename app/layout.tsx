@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./invoices.css";
+import "./camera.css";
 
 export const metadata: Metadata = {
   title: "TEKEL • Bayi Yönetim",

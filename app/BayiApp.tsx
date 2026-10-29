@@ -1,10 +1,12 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ShoppingCart, Package, Boxes, Wallet, Users, ChartNoAxesCombined, Database, Search, Plus, Minus, Trash2, Barcode, ArrowUpRight, RefreshCw, Check, AlertTriangle, ChevronRight, X, Download, Upload, CreditCard, Banknote, Menu, LogOut, Store, ArrowDownLeft, Truck } from 'lucide-react';
+import { ShoppingCart, Package, Boxes, Wallet, Users, ChartNoAxesCombined, Database, Search, Plus, Minus, Trash2, Barcode, ArrowUpRight, RefreshCw, Check, AlertTriangle, ChevronRight, X, Download, Upload, CreditCard, Banknote, Menu, LogOut, Store, ArrowDownLeft, Truck, Camera } from 'lucide-react';
 import type { Envelope, Product } from '../lib/types';
 import ProductForm from './ProductForm';
 import ContactsPanel from './ContactsPanel';
 import InvoicesPanel from './InvoicesPanel';
+import CameraScanner from './CameraScanner';
+import {findProductByBarcode,normalizeBarcode,barcodeKey} from '../lib/barcodes.mjs';
 import { parseProductsCSV, productsCSV } from '../lib/csv.mjs';
 type Tab = 'Satış' | 'Ürünler' | 'Stok' | 'Kasa' | 'Veresiye' | 'Raporlar' | 'Yedekleme' | 'Müşteriler' | 'Tedarikçiler';
 type Line = {
@@ -27,6 +29,7 @@ export default function BayiApp() {
     const [pending, setPending] = useState(false);
     const [completionEpoch,setCompletionEpoch]=useState(0);
     const [stockSection,setStockSection]=useState<'inventory'|'purchase'|'sale'>('inventory');
+    const [cameraOpen,setCameraOpen]=useState(false),[unknownBarcode,setUnknownBarcode]=useState(''),[barcodeProductId,setBarcodeProductId]=useState(''),[barcodeQuery,setBarcodeQuery]=useState('');
     const replace = useCallback((d: Envelope) => { dataRef.current = d; setData(d); }, []);
     const load = useCallback(async () => { const r = await fetch('/api/state', { cache: 'no-store' }); const body = await r.json() as Envelope & {
         error?: string;
@@ -128,11 +131,25 @@ export default function BayiApp() {
     } if (p.stock < 1) {
         setError('Bu ürünün stoku yok. Stok ekranından giriş yapın.');
         return;
-    } const index = cart.findIndex(x => x.id === p.id && x.unit === 'pack'); if (index >= 0) {
+    } const reserved=cart.filter(l=>l.id===p.id).reduce((n,l)=>n+l.quantity*(l.unit==='carton'?p.packsPerCarton:1),0);
+    if(reserved>=p.stock){setError('Sepetteki miktar mevcut stok sınırına ulaştı.');return false;}
+    const index = cart.findIndex(x => x.id === p.id && x.unit === 'pack'); if (index >= 0) {
         change(index, 1);
     }
     else
-        setCart([...cart, { id: p.id, quantity: 1, unit: 'pack' }]); }
+        setCart([...cart, { id: p.id, quantity: 1, unit: 'pack' }]); return true; }
+    function scanForSale(raw:string){
+        setCameraOpen(false);setError('');const code=normalizeBarcode(raw);if(!code){setError('Ürün barkodu okunamadı.');return;}
+        const p=findProductByBarcode(products,code) as Product|null;
+        if(p){if(add(p)){setNotice(p.name+' sepete eklendi.');setShowCart(true);}return;}
+        if(products.filter(p=>barcodeKey(p.barcode)===barcodeKey(code)).length>1){setError('Barkod birden fazla ürüne karşılık geliyor. Ürünler ekranından barkodları kontrol edin.');return;}
+        setUnknownBarcode(code);setBarcodeProductId('');setBarcodeQuery('');setModal('Barkod tanımla');
+    }
+    async function bindScannedBarcode(){const p=products.find(p=>p.id===barcodeProductId);if(!p)return;
+        if(await act({type:'bindBarcode',productId:p.id,barcode:unknownBarcode,expectedProduct:p},'Barkod ürüne bağlandı.')){
+            const saved=dataRef.current?.state.products.find(x=>x.id===p.id);if(saved&&add(saved)){setNotice(saved.name+' sepete eklendi.');setShowCart(true);}
+        }
+    }
     function change(index: number, delta: number) { setCart(c => c.map((l, n) => n === index ? { ...l, quantity: l.quantity + delta } : l).filter(l => l.quantity > 0)); }
     async function checkout(payment: string) { if (!cart.length)
         return; if (!saleId.current)
@@ -173,7 +190,7 @@ export default function BayiApp() {
  {(tab === 'Müşteriler' || tab === 'Tedarikçiler') && <ContactsPanel key={tab+completionEpoch} kind={tab==='Tedarikçiler'?'supplier':'customer'} state={data.state} busy={busy} error={error} onAction={act}/>}
  {tab === 'Stok' && <nav className="stock-sections no-print" aria-label="Stok bölümleri">{([{id:'inventory',label:'Stok Takibi'},{id:'purchase',label:'Alış Faturaları'},{id:'sale',label:'Satış Faturaları'}] as const).map(s=><button key={s.id} type="button" aria-pressed={stockSection===s.id} className={stockSection===s.id?'selected':''} onClick={()=>setStockSection(s.id)}>{s.label}</button>)}</nav>}
  {tab === 'Stok' && stockSection !== 'inventory' && <InvoicesPanel key={stockSection+completionEpoch} kind={stockSection} state={data.state} busy={busy} error={error} onAction={act}/>}
- {tab === 'Satış' && <>{stats}{!products.some(p => p.verified) && <div className="setup-banner"><div><strong>Mağazanızı satışa hazırlayın</strong><p>{products.length} ürün taslağı hazır. Fiyat, barkod ve başlangıç stoklarını kontrol ederek ürünleri etkinleştirin.</p></div><button className="btn ghost" onClick={() => navigate('Ürünler')}>Ürünleri düzenle <ArrowUpRight size={16}/></button></div>}<div className="sales-layout"><section className="catalog"><form className="search-box" onSubmit={e => { e.preventDefault(); const p = products.find(p => p.barcode === query.trim()); if (p) {
+ {tab === 'Satış' && <>{stats}{!products.some(p => p.verified) && <div className="setup-banner"><div><strong>Mağazanızı satışa hazırlayın</strong><p>{products.length} ürün taslağı hazır. Fiyat, barkod ve başlangıç stoklarını kontrol ederek ürünleri etkinleştirin.</p></div><button className="btn ghost" onClick={() => navigate('Ürünler')}>Ürünleri düzenle <ArrowUpRight size={16}/></button></div>}<div className="sales-layout"><section className="catalog"><div className="camera-action"><button type="button" className="btn primary" disabled={busy||pending} onClick={()=>{setError('');setCameraOpen(true);}}><Camera size={19}/>Kamerayla okut</button><span className="hint">Telefon kamerasıyla barkodu okutun, ürünü sepete ekleyin.</span></div><form className="search-box" onSubmit={e => { e.preventDefault(); if(normalizeBarcode(query)){scanForSale(query);setQuery('');return;} const p = findProductByBarcode(products,query) as Product|null; if (p) {
             add(p);
             setQuery('');
         }
@@ -199,6 +216,7 @@ export default function BayiApp() {
  {modal && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget && !busy)
             setModal(null); }}><section className="modal" role="dialog" aria-modal="true" aria-label={modal}><div className="panel-heading"><h2>{modal}</h2><button className="icon-btn" disabled={busy} aria-label="Pencereyi kapat" onClick={() => setModal(null)}><X /></button></div>{error && <p className="banner error">{error}</p>}
  {(modal === 'Yeni ürün' || modal === 'Ürün düzenle') && <ProductForm product={product} busy={busy} onSave={p => act({ type: 'product', product: p, expectedProduct: product.id ? product : undefined }, 'Ürün kaydedildi.')}/>}
+ {modal === 'Barkod tanımla' && <div className="barcode-binding"><p>Bu barkod henüz kayıtlı değil. Mevcut bir ürünle eşleştirin veya yeni ürün oluşturun.</p><p className="scan-code">{unknownBarcode}</p><label>Ürün adı ara<input value={barcodeQuery} onChange={e=>setBarcodeQuery(e.target.value)} placeholder="Ürün adı"/></label><label>Barkodu boş ürün<select value={barcodeProductId} onChange={e=>setBarcodeProductId(e.target.value)}><option value="">Ürün seçin</option>{products.filter(p=>!p.barcode&&p.name.toLocaleLowerCase('tr').includes(barcodeQuery.toLocaleLowerCase('tr'))).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label><p>Stok ve fiyatı hazırsa ürün sepete eklenir. Başka bir barkodun üzerine yazılmaz.</p><button type="button" className="btn primary full" disabled={busy||!barcodeProductId} onClick={bindScannedBarcode}>Barkodu bağla ve sepete ekle</button><div className="button-row"><button type="button" className="btn ghost full" disabled={busy} onClick={()=>{setProduct({...blank,barcode:unknownBarcode});setModal('Yeni ürün');}}>Bu barkodla yeni ürün ekle</button></div></div>}
  {modal === 'Müşteri ekle' && <form className="form-grid" onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget); act({ type: 'customer', name: f.get('name'), phone: f.get('phone') }, 'Müşteri eklendi.'); }}><label className="wide">Ad soyad<input autoFocus name="name" required maxLength={140}/></label><label className="wide">Telefon<input name="phone" type="tel" maxLength={40}/></label><button className="btn primary wide" disabled={busy}>Müşteriyi kaydet</button></form>}
  {modal === 'Stok girişi' && <form className="form-grid" onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget); act({ type: 'receipt', productId: f.get('productId'), quantity: Number(f.get('quantity')), cost: Math.round(Number(f.get('cost')) * 100) }, 'Stok girişi kaydedildi.'); }}><label className="wide">Ürün<select name="productId" value={selected} onChange={e => setSelected(e.target.value)}>{products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label>Gelen paket sayısı<input autoFocus type="number" name="quantity" required min="1" step="1"/></label><label>Yeni alış fiyatı (₺ / paket)<input key={selected} type="number" name="cost" required min="0.01" step="0.01" defaultValue={(products.find(p => p.id === selected)?.cost || 0) / 100}/></label><p className="hint wide">Alış fiyatı güncellenir. Eski satışların kârı değişmez. Bu kayıt kasadan otomatik düşülmez.</p><button className="btn primary wide" disabled={busy}>Stok girişini kaydet</button></form>}
  {modal === 'Gider ekle' && <form className="form-grid" onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget); act({ type: 'expense', amount: Math.round(Number(f.get('amount')) * 100), note: f.get('note') }, 'Nakit gider kaydedildi.'); }}><label className="wide">Açıklama<input name="note" required maxLength={140} autoFocus/></label><label className="wide">Nakit gider tutarı (₺)<input name="amount" type="number" min="0.01" step="0.01" required/></label><button className="btn primary wide" disabled={busy}>Gideri kaydet</button></form>}
@@ -206,6 +224,7 @@ export default function BayiApp() {
  {modal === 'Veresiye satış' && <div className="form-grid"><label className="wide">Müşteri seç<select value={customerId} onChange={e => setCustomerId(e.target.value)}><option value="">Müşteri seçin</option>{state?.customers.map(c => <option key={c.id} value={c.id}>{c.name} · {money(c.debt)}</option>)}</select></label><p className="hint wide">Yeni müşteri eklemek için Veresiye ekranını kullanın. Sepetiniz korunur.</p><div className="total wide"><span>Borca eklenecek</span><strong>{money(total)}</strong></div><button disabled={!customerId || busy} className="btn primary wide" onClick={() => checkout('credit')}>Veresiye satışı kaydet</button></div>}
  {modal === 'Müşteri hesabı' && <div className="history"><h3>{state?.customers.find(c => c.id === selected)?.name}</h3>{state?.sales.filter(s => s.customerId === selected && s.payment === 'credit').map(s => <div key={s.id} className="history-row"><span>Veresiye satış<small>{dateText(s.date)}</small></span><b className="orange">+{money(s.total)}</b></div>)}{state?.collections.filter(c => c.customerId === selected).map(c => <div key={c.id} className="history-row"><span>{paymentText(c.payment)} tahsilat<small>{dateText(c.date)}</small></span><b className="green-text">−{money(c.amount)}</b></div>)}</div>}
  </section></div>}
+ {cameraOpen && <CameraScanner onClose={()=>setCameraOpen(false)} onScan={scanForSale}/>}
  </div>;
 }
 function Metric({ label, value, detail }: {

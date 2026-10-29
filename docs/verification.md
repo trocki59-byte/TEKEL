@@ -19,3 +19,11 @@
 - 390×844 mobil görünümde yeni menüler ve fatura formu denetlendi. Açık yan menüde metinleri gizleyen CSS seçicisi düzeltildi ve tarayıcıda yeniden doğrulandı.
 - Uygulayıcı kararı: iskontolar fatura genelinde sıralı yüzde olarak uygulanır. Fatura kesinleşince değiştirilemez; yeni stok/satış işlemi oluşturduğu formda açıklanır. Satır neti ürün son alış fiyatına kuruşla yuvarlanır. Ayrı vergi hesaplaması veya resmi e-belge entegrasyonu yoktur.
 - Yerel test verileri üretime taşınmaz; paylaşılan D1 kaydı mevcut haliyle korunur, yeni listeler geriye uyumlu eklenir.
+
+## Kamera okuyucu — 29 Ekim
+- ZXing @zxing/browser 0.2.1 ve @zxing/library 0.23.0 isteğe bağlı yüklenir. EAN13/EAN8/UPC-A/Code128/ITF; rakam dışı veya 8–14 hane dışı sonuçlar yok sayılır. Görüntü cihazda kalır.
+- Oturum tek sonuç verir; kapanma, arka plan, unmount ve geç izin durumlarında sahip olunan kaynaklar bırakılır. Yeniden başlatmada ayrı video DOM düğümü kullanılır; eski ZXing finalizer'ı yeni görüntüyü silemez.
+- İncelemede UPC-E'nin yalnızca sıfır eklemeyle UPC-A'ya çevrilemeyeceği doğrulandı; bu format desteği çıkarıldı. Elle ürün kaydı da EAN/UPC eşdeğer barkod çakışmasını reddeder.
+- 30 test, TypeScript kontrolü; gerçek ZXing ile sentetik EAN13 piksel görüntüsünü çözme ve çözülen üründen stok düşüren satış testi dahil.
+- Yerel UI: kamera modalı ve 390×844 görünüm, kamerayı başlatmadan kapatma, ortak barkod girişinden bilinmeyen barkodu boş bir ürüne bağlama → sepete tek paket → nakit satış doğrulandı. Yalnızca yerel test verisi kullanıldı.
+- Fiziksel telefon/kamera denemesi yapılmadı. İzin hata metinleri ve iptal davranışı kaynak sınırında otomatik testlerle denetlendi; kullanıcının telefonunda canlı okutma ayrıca denenmelidir.

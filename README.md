@@ -12,6 +12,7 @@ Türkçe, koyu temalı ve telefon/bilgisayar uyumlu özel işletme paneli.
 - JSON dışa aktarma/geri yükleme ve ürün CSV içe/dışa aktarma.
 - Ortak Cloudflare D1 kaydı, atomik sürüm kontrolü ve tekrar işlem koruması.
 - Kısa açılış tanıtımında **Troçki Studio**, ardından **TEKEL** uygulaması.
+- Telefon kamerasıyla barkod okuyup sepete ekleme; ürün kartında kamerayla barkod doldurma.
 
 ## İlk kullanım
 1. Özel yayın adresine, yayının sahibi olan ChatGPT hesabıyla giriş yapın.
@@ -19,6 +20,15 @@ Türkçe, koyu temalı ve telefon/bilgisayar uyumlu özel işletme paneli.
 3. Satış ekranında barkod okuyucu alanına odaklanın (F2). Okuyucunun Enter gönderme ayarını kullanın. Barkodsuz ürünler karttan seçilebilir.
 4. Nakit/kart düğmeleri ödeme işlemini **kaydeder**; banka POS cihazından ücret çekmez.
 5. Gün sonunda JSON yedeği indirip güvenli bir yerde saklayın.
+
+### Telefon kamerasıyla satış
+Telefon tarayıcısında HTTPS yayın bağlantısını açın. **Satış → Kamerayla okut → Kamerayı başlat** yolunu izleyip kamera izni verin. Paket üzerindeki çizgili barkodu çerçeveye yatay hizalayın. Her açılışta tek barkod alınır ve kamera kapanır; kayıtlı ürün sepete bir paket eklenir. Ödeme otomatik yapılmaz: sepetten Nakit/Kart/Veresiye seçilir.
+
+Kayıtlı olmayan barkod için **Barkod tanımla** penceresi açılır. Barkodu boş bir ürünle eşleştirebilir veya yeni ürün kartı açabilirsiniz. Stok/fiyat/onay hazır değilse önce ürün bilgileri tamamlanır. Başka ürüne ait veya başka barkodla tanımlı bir ürünün barkodu otomatik ezilmez. Barkod alanına elle/okuyucuyla girilen numaralar aynı eşleştirme yolunu kullanır.
+
+EAN-13, EAN-8, UPC-A, Code 128 ve ITF içindeki 8–14 rakam desteklenir. UPC-E destek listesine alınmamıştır. UPC-A ve başında sıfır olan EAN-13 aynı ürün kimliğiyle aranır; yinelenen eşdeğer barkod kaydı reddedilir. Eski yedekte eşdeğer iki kayıt varsa okutma yerine Ürünler ekranından çakışma giderilmelidir.
+
+Görüntü ZXing ile cihazda işlenir, sunucuya yüklenmez. Kamera açıkça başlatılır, kapatmada/arka planda durur; izin reddi, kamera yokluğu veya cihaz meşgul durumlarında açıklama ve tekrar deneme sunulur. Kaynak: [ZXing tarayıcı API'si](https://github.com/zxing-js/browser). Gerçek telefon kamerasıyla fiziksel deneme bu geliştirme ortamında yapılamadı; örnek EAN-13 görüntüsünü çözme, kamera yaşam döngüsü ve barkoddan satış akışı test edildi.
 
 80 ürün kaydı **taslak katalogdur**. Eksiksiz, güncel Türkiye çeşit/barkod/fiyat veritabanı değildir. Fiyat ve barkod uydurulmaz; başlangıç stok/fiyatları sıfırdır. Eksik çeşitler eklenebilir veya CSV ile aktarılabilir. Katalog araştırma kaynakları: [JTI](https://www.jti.com/en/our-brands), [Türkiye marka/seri araştırması](https://www.karekod.org/blog/turkiyede-satilan-sigara-markalari/).
 
